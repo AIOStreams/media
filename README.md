@@ -1,28 +1,71 @@
-# packages/native
+# AIOStreams media
 
-Rust shared by the desktop and Android apps. A Cargo workspace outside the pnpm build.
+Rust crates for seek-bar thumbnails and subtitle timelines of video files streamed over HTTP, from [AIOStreams](https://github.com/Viren070/AIOStreams)' desktop and Android apps. They read a file's index and only the frames they need, with range requests, so they work on a link to a large file without downloading it.
 
-| Crate | Path | What it is |
+| Crate | Path | What it does |
 | --- | --- | --- |
-| `aiostreams-container` | `container/` | Container indexes read over bounded HTTP ranges: Matroska (SeekHead, Info, Tracks, Cues of every track) and MP4 sample tables, keyframe lookup. No FFmpeg. |
-| `aiostreams-thumbs` | `thumbs/` | Seek-bar thumbnails: one keyframe decoded with libavcodec, multi-slice HEVC decoded as parallel strips, scaled and tone mapped to a JPEG. Bench binary `thumbs-bench` (feature `bench`). |
-| `aiostreams-native-android` | `android/` | The Android app's one native library, `libaiostreams_native.so`: every feature's JNI exports. |
+| `aiostreams-container` | `container/` | Reads the tracks, keyframes and subtitle timing of a Matroska/WebM or MP4/MOV file from its index (Matroska's SeekHead, Tracks and Cues, MP4's sample tables), over bounded HTTP range requests or from a local path. No FFmpeg. |
+| `aiostreams-thumbs` | `thumbs/` | Thumbnails of single keyframes: decoded with FFmpeg's libavcodec, multi-slice HEVC as parallel strips, then scaled, tone mapped from HDR and Dolby Vision profile 5, and encoded as JPEG. H.264, HEVC, AV1, VP9 and MPEG-2. |
 
-## Linking
+## Using them
 
-- Desktop: path dependencies from `packages/desktop`, e.g. `aiostreams-container = { path = "../../native/container" }`.
-- Android: `cargo ndk --platform 24 -t arm64-v8a -t armeabi-v7a -t x86_64 -o <jniLibs dir> build --release -p aiostreams-native-android`, with the Rust targets `aarch64-linux-android`, `armv7-linux-androideabi` and `x86_64-linux-android` installed.
-- `thumbs` loads libavcodec and libavutil at runtime, from the folders given to `library_dirs` and then the system's search path, so building it needs no FFmpeg. Android enables it with `--features thumbs`.
+They aren't on crates.io yet, so depend on a commit:
 
-## JNI
+```toml
+[dependencies]
+aiostreams-container = { git = "https://github.com/AIOStreams/media", rev = "<commit>" }
+aiostreams-thumbs = { git = "https://github.com/AIOStreams/media", rev = "<commit>" }
+```
 
-Kotlin package `io.github.viren070.aiostreams.natives`, one `object` per feature with `@JvmStatic external fun`s, and one module per feature in `android/src`, exporting `Java_io_github_viren070_aiostreams_natives_<Object>_<method>`. Calls block, so call them off the main thread. Structured results go back as JSON strings, images as `ByteArray`.
+### Thumbnails
 
-`android::http::reader` builds a reader from a player's URL, its request headers (name, value, name, value, ...) and the device's trusted roots as PEM, so user-installed CAs work as they do for the players.
+`aiostreams-thumbs` loads libavcodec and libavutil from FFmpeg 5 or later (libavcodec 59 to 66) when the first thumbnail decodes: first from the folders given to `library_dirs`, then from the system's search path. Building it needs no FFmpeg, and an app that ships no FFmpeg gets an error instead of a thumbnail.
+
+`Thumbnailer` makes one at a time on the calling thread:
+
+```rust
+use aiostreams_container::Options;
+use aiostreams_thumbs::{Settings, Thumbnailer};
+
+let mut thumbs = Thumbnailer::open(url, Options::default(), Settings::default())?;
+let thumbnail = thumbs.get(90_000)?; // the keyframe at or before 1:30
+std::fs::write("thumb.jpg", &thumbnail.jpeg)?;
+```
+
+For a seek bar, `Session` keeps up with a moving pointer: it fetches several keyframes at once, renders only the newest asked for, caches what it made and frees its decoders when idle. `Thumbnails` is the same, but opens the file on a background thread when first asked:
+
+```rust
+use aiostreams_container::Options;
+use aiostreams_thumbs::{Session, Settings};
+
+let session = Session::open(url, Options::default(), Settings::default(), |thumbnail| {
+    // runs on a background thread with each thumbnail made
+})?;
+if let Some(cached) = session.want(position_ms, showing_ms) {
+    // made before, so it's here at once; otherwise the callback gets it
+}
+```
+
+`Options` sets request headers, timeouts, a byte and request budget and the trusted roots; `Settings` the thumbnail width, decoder threads, JPEG quality and cache size.
+
+### Subtitle timelines
+
+```rust
+use aiostreams_container::{RangeReader, index_options, subtitle_timelines};
+
+let mut reader = RangeReader::new(url, index_options())?;
+for track in subtitle_timelines(&mut reader)? {
+    println!("track {} ({}): {} lines", track.number, track.codec, track.lines.len());
+}
+```
+
+Each track's `lines` are when its lines start and end, in milliseconds, from the file's index alone: Matroska's Cues, with a PGS track's show and clear entries paired into lines, or an MP4 track's sample table. A track the index leaves out comes back empty. `index_options()` caps the reading at a few requests.
 
 ## Bench
 
-    cargo run --release -p aiostreams-thumbs --features bench --bin thumbs-bench -- <command>
+```sh
+cargo run --release -p aiostreams-thumbs --features bench --bin thumbs-bench -- <command>
+```
 
 with FFmpeg's libraries on the library search path.
 
@@ -30,3 +73,8 @@ with FFmpeg's libraries on the library search path.
 - `decode <dir> [--split N] [--threads N] [--idle] [--sheet out.jpg]` times decoding them.
 - `verify <dir>` decodes each keyframe whole and as strips and compares every sample.
 - `scrub <url> [--workers N]` simulates a held seek key.
+- `dovi-check <dir> <keyframe> <gbrp16le raw> [--out pair.jpg]` compares a Dolby Vision profile 5 thumbnail with a full-size PQ render.
+
+## Licence
+
+AGPL-3.0-only, as in `LICENSE`.
