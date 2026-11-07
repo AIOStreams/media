@@ -1,11 +1,12 @@
 # AIOStreams media
 
-Rust crates for seek-bar thumbnails and subtitle timelines of video files streamed over HTTP, from [AIOStreams](https://github.com/Viren070/AIOStreams)' desktop and Android apps. They read a file's index and only the frames they need, with range requests, so they work on a link to a large file without downloading it.
+Rust crates for seek-bar thumbnails and subtitle timelines of video files streamed over HTTP, and an anime upscaling shader, from [AIOStreams](https://github.com/Viren070/AIOStreams)' desktop and Android apps. The first two read a file's index and only the frames they need, with range requests, so they work on a link to a large file without downloading it.
 
 | Crate | Path | What it does |
 | --- | --- | --- |
 | `aiostreams-container` | `container/` | Reads the tracks, keyframes and subtitle timing of a Matroska/WebM or MP4/MOV file from its index (Matroska's SeekHead, Tracks and Cues, MP4's sample tables), over bounded HTTP range requests or from a local path. No FFmpeg. |
 | `aiostreams-thumbs` | `thumbs/` | Thumbnails of single keyframes: decoded with FFmpeg's libavcodec, multi-slice HEVC as parallel strips, then scaled, tone mapped from HDR and Dolby Vision profile 5, and encoded as JPEG. H.264, HEVC, AV1, VP9 and MPEG-2. |
+| `aiostreams-upscale` | `upscale/` | A small network that doubles anime as it plays, as an mpv shader and as weights. See [its README](upscale/README.md), which covers using the shader in mpv. |
 
 ## Using them
 
@@ -77,4 +78,4 @@ with FFmpeg's libraries on the library search path.
 
 ## Licence
 
-AGPL-3.0-only, as in `LICENSE`.
+AGPL-3.0-only, as in `LICENSE`, except `upscale/`, which is MIT.

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["container", "thumbs"]
+members = ["container", "thumbs", "upscale"]
 
 [workspace.package]
 version = "0.1.0"
