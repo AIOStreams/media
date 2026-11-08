@@ -20,15 +20,15 @@ PSNR to the clean frames, in dB, on 16 shows the network never saw. Each was cop
 
 | Damage | Plain | Anime4K A | A HQ | B | C | This network |
 | --- | --- | --- | --- | --- | --- | --- |
-| Clean downscale to 540p | 37.30 | 35.16 | 36.07 | 36.77 | **39.15** | 38.81 |
-| Web, 480p | 35.41 | 32.85 | 33.60 | 34.20 | 35.96 | **36.61** |
-| Soft, 480p | 32.94 | 34.18 | 34.37 | 34.23 | 33.68 | **34.61** |
-| DVD, MPEG-2 480p | 32.58 | 34.96 | **35.04** | 34.38 | 33.32 | 34.85 |
-| Low bitrate, 432p | 31.26 | 31.48 | 31.76 | 31.81 | 31.75 | **32.19** |
-| Ringing, 540p | **35.90** | 31.25 | 32.25 | 33.21 | 33.93 | 34.83 |
-| Broadcast, 540p | 34.98 | 34.39 | 34.94 | 35.42 | **36.42** | 36.39 |
-| Broadcast, 720p | 35.15 | 35.23 | 35.77 | 36.13 | **36.65** | 36.57 |
-| **All** | 33.98 | 33.51 | 33.98 | 34.18 | 34.65 | **35.26** |
+| Clean downscale to 540p | 37.30 | 35.16 | 36.07 | 36.77 | **39.15** | 38.75 |
+| Web, 480p | 35.41 | 32.85 | 33.60 | 34.20 | 35.96 | **36.52** |
+| Soft, 480p | 32.94 | 34.18 | 34.37 | 34.23 | 33.68 | **34.43** |
+| DVD, MPEG-2 480p | 32.58 | 34.96 | **35.04** | 34.38 | 33.32 | 34.44 |
+| Low bitrate, 432p | 31.26 | 31.48 | 31.76 | 31.81 | 31.75 | **32.10** |
+| Ringing, 540p | **35.90** | 31.25 | 32.25 | 33.21 | 33.93 | 34.42 |
+| Broadcast, 540p | 34.98 | 34.39 | 34.94 | 35.42 | **36.42** | 36.36 |
+| Broadcast, 720p | 35.15 | 35.23 | 35.77 | 36.13 | **36.65** | 36.49 |
+| **All** | 33.98 | 33.51 | 33.98 | 34.18 | 34.65 | **35.09** |
 
 Plain is bilinear. Anime4K's presets are at their usual names: Mode A is Restore and Upscale CNN M, A HQ the same at VL, B uses Restore Soft M and C Upscale Denoise M. Each preset is best on the damage it was made for and worst away from it, which is why its users switch modes by hand.
 
@@ -36,13 +36,13 @@ What the numbers don't show: Anime4K's HQ preset draws crisper lines than this n
 
 ## Cost
 
-About 740 multiply-adds per source pixel, against about 4,200 for Mode A and 2,100 for Mode C, in 11 passes of four values a pixel. Measured per frame while playing:
+About 260 multiply-adds per source pixel, against about 4,200 for Mode A and 2,100 for Mode C, in 5 passes of four values a pixel. Measured per frame:
 
 | Device | Source | Time |
 | --- | --- | --- |
-| NVIDIA RTX 5070 | 720x480 | 0.1 ms |
-| AMD Ryzen 7 7800X3D's integrated graphics | 720x480 | 1.5 ms |
-| Samsung Galaxy S24 (Xclipse 940) | 640x480 | 3.5 ms |
+| NVIDIA RTX 5070 | 720x480 | 0.04 ms |
+| AMD Ryzen 7 7800X3D's integrated graphics | 720x480 | 0.75 ms |
+| Samsung Galaxy S24 (Xclipse 940), at its lowest clock | 640x480 | 1.2 ms |
 
 The time grows with the source's pixels, not the screen's.
 
