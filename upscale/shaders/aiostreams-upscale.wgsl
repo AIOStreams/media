@@ -1,0 +1,94 @@
+//! name: upscale layer 0
+//! shape: kernel
+//! hook: PRESCALE
+//! domain: source
+//! when: output.height / source.height > 1.2 && !hdr.source
+//! input: HOOKED
+//! save: UPSCALE_0
+//! output: HOOKED.size, rgba8unorm
+
+// aiostreams-upscale, https://github.com/AIOStreams/media/tree/main/upscale
+// SPDX-License-Identifier: MIT
+
+fn kernel(coordinate: vec2f) -> vec4f {
+    var r = vec4f(0.216675,-0.15509,0.228713,-0.37278);
+    r += vec4f(-0.0193571,-0.263692,0.639379,-0.385417) * dot(HOOKED_texOff(coordinate, vec2f(0.0, -1.0)).rgb, vec3f(0.299, 0.587, 0.114));
+    r += vec4f(0.850231,-0.603676,-1.27911,-0.617714) * dot(HOOKED_texOff(coordinate, vec2f(-1.0, 0.0)).rgb, vec3f(0.299, 0.587, 0.114));
+    r += vec4f(0.361797,1.35932,0.0303056,-0.441307) * dot(HOOKED_texOff(coordinate, vec2f(0.0, 0.0)).rgb, vec3f(0.299, 0.587, 0.114));
+    r += vec4f(0.280168,0.228882,0.520555,0.160037) * dot(HOOKED_texOff(coordinate, vec2f(1.0, 0.0)).rgb, vec3f(0.299, 0.587, 0.114));
+    r += vec4f(-1.33518,0.350665,0.163589,0.0334983) * dot(HOOKED_texOff(coordinate, vec2f(0.0, 1.0)).rgb, vec3f(0.299, 0.587, 0.114));
+    return clamp(r, vec4f(0.0), vec4f(1.0));
+}
+
+//! name: upscale layer 1
+//! shape: kernel
+//! hook: PRESCALE
+//! domain: source
+//! when: output.height / source.height > 1.2 && !hdr.source
+//! input: UPSCALE_0
+//! save: UPSCALE_1
+//! output: HOOKED.size, rgba8unorm
+
+fn kernel(coordinate: vec2f) -> vec4f {
+    var r = vec4f(-0.174391,-0.0117016,-0.0561711,0.268479);
+    r += mat4x4f(0.0816861,-0.593613,-0.412694,0.120993,0.131547,-0.00185666,-0.0200621,-0.0607727,-0.0146659,0.126246,0.0721562,-0.0442398,-0.00382128,0.00679997,-0.0114084,-0.0104249) * UPSCALE_0_texOff(coordinate, vec2f(0.0, -1.0));
+    r += mat4x4f(-0.026638,0.296601,-0.0326949,-0.260712,0.221226,-0.030879,-0.250727,0.146916,-0.117318,0.214744,0.113483,-0.223909,-0.0109192,0.00761685,0.00782898,0.00888699) * UPSCALE_0_texOff(coordinate, vec2f(-1.0, 0.0));
+    r += mat4x4f(0.889377,0.0584542,-0.174221,-0.361021,-0.0832706,0.894821,0.15542,-0.234167,-0.00564694,-0.130456,0.821836,0.0172836,0.0104426,0.00900456,0.00552009,0.7243) * UPSCALE_0_texOff(coordinate, vec2f(0.0, 0.0));
+    r += mat4x4f(0.0714129,0.217612,-0.0402433,-0.00930241,0.185747,-0.281106,0.112009,-0.0230528,-0.124031,-0.358803,-0.106602,-0.11025,-0.00788256,-0.0118327,-0.000128102,-0.00733132) * UPSCALE_0_texOff(coordinate, vec2f(1.0, 0.0));
+    r += mat4x4f(-0.0486815,0.09893,-0.110287,0.0395478,-0.0389389,-0.144919,0.101247,0.284965,0.0785512,0.189899,0.11607,-0.290291,-0.000453786,0.0111187,-0.0109362,0.00479967) * UPSCALE_0_texOff(coordinate, vec2f(0.0, 1.0));
+    return clamp(r, vec4f(0.0), vec4f(1.0));
+}
+
+//! name: upscale layer 2
+//! shape: kernel
+//! hook: PRESCALE
+//! domain: source
+//! when: output.height / source.height > 1.2 && !hdr.source
+//! input: UPSCALE_1
+//! save: UPSCALE_2
+//! output: HOOKED.size, rgba8unorm
+
+fn kernel(coordinate: vec2f) -> vec4f {
+    var r = vec4f(-0.0217079,0.000825651,-0.0251887,-0.023261);
+    r += mat4x4f(0.519798,-0.112619,0.488139,0.357329,-0.217754,0.137315,-0.355291,-0.26314,0.366114,-0.180371,0.388101,0.119184,0.423964,-0.562552,0.88446,0.774462) * UPSCALE_1_texOff(coordinate, vec2f(0.0, -1.0));
+    r += mat4x4f(0.00351624,-0.0917565,0.0151264,-0.121417,-0.279199,-0.069554,-0.160568,0.0152813,-0.0785993,-0.172481,0.0709388,-0.14329,0.253758,-0.689819,0.119778,-0.0445967) * UPSCALE_1_texOff(coordinate, vec2f(-1.0, 0.0));
+    r += mat4x4f(1.07028,-0.14924,0.347144,0.549528,-1.0602,0.684052,-0.207376,-0.512313,0.521817,-0.456265,0.385328,0.166849,0.671039,0.260432,0.755208,0.588214) * UPSCALE_1_texOff(coordinate, vec2f(0.0, 0.0));
+    r += mat4x4f(0.220071,0.293384,-0.411346,0.025946,-0.394897,-0.354077,0.0285445,-0.49208,0.40993,0.297312,0.426336,0.425744,0.531781,1.31741,0.108205,0.350581) * UPSCALE_1_texOff(coordinate, vec2f(1.0, 0.0));
+    r += mat4x4f(0.0853207,-0.0696973,-0.0542024,0.0189658,-0.662809,-0.133331,0.0265866,-0.00124118,0.379434,-0.235224,-0.0482545,0.0608095,-0.0496827,-0.395701,-0.895164,-0.359499) * UPSCALE_1_texOff(coordinate, vec2f(0.0, 1.0));
+    return clamp(r, vec4f(0.0), vec4f(1.0));
+}
+
+//! name: upscale layer 3
+//! shape: kernel
+//! hook: PRESCALE
+//! domain: source
+//! when: output.height / source.height > 1.2 && !hdr.source
+//! input: UPSCALE_2
+//! save: UPSCALE_3
+//! output: HOOKED.size, rgba8unorm
+
+fn kernel(coordinate: vec2f) -> vec4f {
+    var r = vec4f(0.487689,0.487664,0.487682,0.487651);
+    r += mat4x4f(-0.432897,-0.372583,-0.0738158,-0.087934,-0.0177087,0.0654632,-0.0185883,-0.0527025,0.180509,0.241998,0.022007,0.0125109,0.268098,0.0941923,0.064,0.100848) * UPSCALE_2_texOff(coordinate, vec2f(0.0, -1.0));
+    r += mat4x4f(0.139183,0.0562246,0.0710699,0.0630669,0.526534,0.31504,0.54244,0.31444,0.206425,-0.00741773,0.250731,-0.00881122,-0.536524,-0.000839925,-0.443227,-0.00814642) * UPSCALE_2_texOff(coordinate, vec2f(-1.0, 0.0));
+    r += mat4x4f(0.0768427,0.159426,-0.385822,-0.240775,-0.0399802,0.159739,-0.0392793,0.184255,-0.0671649,0.302584,0.161069,0.503106,-0.0521193,-0.733505,0.0643633,-0.596229) * UPSCALE_2_texOff(coordinate, vec2f(0.0, 0.0));
+    r += mat4x4f(0.0163171,-0.0104727,0.04034,-0.0635779,-0.000686024,0.00871562,-0.000794114,0.0094041,-0.00713469,-0.15521,-0.003198,-0.103548,0.0870711,0.213647,0.0489605,0.254025) * UPSCALE_2_texOff(coordinate, vec2f(1.0, 0.0));
+    r += mat4x4f(-0.002718,-0.0120313,0.120419,0.129615,0.00839086,-0.000934121,0.00909592,0.0862368,-0.0750111,-0.0992219,-0.158378,-0.10854,0.0459059,0.0995353,0.0727344,-0.0541195) * UPSCALE_2_texOff(coordinate, vec2f(0.0, 1.0));
+    return clamp(r, vec4f(0.0), vec4f(1.0));
+}
+
+//! name: upscale
+//! shape: kernel
+//! hook: PRESCALE
+//! domain: source
+//! when: output.height / source.height > 1.2 && !hdr.source
+//! input: HOOKED
+//! input: UPSCALE_3
+//! output: HOOKED.width * 2, HOOKED.height * 2, rgba16float
+
+fn kernel(coordinate: vec2f) -> vec4f {
+    let f = fract(coordinate * UPSCALE_3_size());
+    let i = vec2i(f * 2.0);
+    var e = UPSCALE_3_tex((vec2f(0.5) - f) * UPSCALE_3_pt() + coordinate);
+    return HOOKED_tex(coordinate) + vec4f(vec3f((e[i.y * 2 + i.x] - 0.5) * 0.317873), 0.0);
+}

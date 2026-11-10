@@ -10,3 +10,6 @@ pub const NETWORK: &str = include_str!("../network.json");
 
 /// The network as a shader for mpv and libplacebo. `cargo run --example generate` writes it.
 pub const MPV_SHADER: &str = include_str!("../shaders/aiostreams-upscale.glsl");
+
+/// The network as a pass file for WebGPU-Player's presenter.
+pub const WEBGPU_PLAYER_PASS: &str = include_str!("../shaders/aiostreams-upscale.wgsl");

@@ -14,6 +14,10 @@ glsl-shaders-append="~~/shaders/aiostreams-upscale.glsl"
 
 It runs with `vo=gpu-next` or `vo=gpu`, on any graphics API mpv uses. It only runs when the video is shown at least 1.2 times its size, so a 1080p video on a 1080p screen plays as it is. It is made for SDR video: leave it off for HDR.
 
+## In WebGPU-Player
+
+[`shaders/aiostreams-upscale.wgsl`](shaders/aiostreams-upscale.wgsl) is the same network as a pass file for [WebGPU-Player](https://github.com/alchemyyy/WebGPU-Player). Drop it on the sandbox's shader panel, or give its text to the presenter's `setPresentationPreset`. It runs when the mpv shader would, and leaves HDR video alone by itself.
+
 ## How it compares
 
 PSNR to the clean frames, in dB, on 16 shows the network never saw. Each was copied with damage a real release has, then doubled back to full size. Higher is closer to the clean picture.
@@ -58,6 +62,8 @@ aiostreams-upscale = { git = "https://github.com/AIOStreams/media", rev = "<comm
 ```rust
 // The mpv shader, for a player that takes a file.
 std::fs::write(&path, aiostreams_upscale::MPV_SHADER)?;
+// The same network as a WebGPU-Player pass file.
+let pass = aiostreams_upscale::WEBGPU_PLAYER_PASS;
 // The weights, for an app that builds its own shaders.
 let network: serde_json::Value = serde_json::from_str(aiostreams_upscale::NETWORK)?;
 // Below this much enlarging, the shader leaves the picture alone.
@@ -70,7 +76,7 @@ let min_scale = aiostreams_upscale::MIN_SCALE;
 
 It was trained on clean 1080p frames from 21 shows, with damaged copies of each as input, plus a smaller share of real old SD footage, for which Anime4K's Mode A was the target since no clean copy exists. The frames aren't included. Anime4K, by bloc97 under the MIT licence, was the teacher for that share and the comparison throughout.
 
-After changing `network.json`, regenerate the shader with `cargo run -p aiostreams-upscale --example generate`.
+After changing `network.json`, regenerate the shaders with `cargo run -p aiostreams-upscale --example generate`.
 
 ## Licence
 

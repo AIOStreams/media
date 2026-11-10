@@ -1,4 +1,4 @@
-//! Writes `shaders/aiostreams-upscale.glsl` from `network.json`.
+//! Writes the shaders in `shaders/` from `network.json`.
 
 use aiostreams_upscale::{MIN_SCALE, NETWORK};
 use serde::Deserialize;
@@ -85,11 +85,75 @@ fn shader(network: &Network) -> String {
     out
 }
 
+fn webgpu_pass(network: &Network) -> String {
+    // Only blank lines may come before the first header, so the notice opens the first body.
+    let notice = "// aiostreams-upscale, https://github.com/AIOStreams/media/tree/main/upscale\n\
+                  // SPDX-License-Identifier: MIT\n\n";
+    let head = format!(
+        "//! shape: kernel\n//! hook: PRESCALE\n//! domain: source\n\
+         //! when: output.height / source.height > {MIN_SCALE} && !hdr.source\n"
+    );
+    let mut out = String::new();
+    let mut previous: Option<String> = None;
+    for (i, layer) in network.layers.iter().enumerate() {
+        let target = format!("UPSCALE_{i}");
+        let input = previous.as_deref().unwrap_or("HOOKED");
+        out += &format!(
+            "//! name: upscale layer {i}\n{head}//! input: {input}\n//! save: {target}\n\
+             //! output: HOOKED.size, rgba8unorm\n\n{}\
+             fn kernel(coordinate: vec2f) -> vec4f {{\n    var r = vec4f({});\n",
+            if i == 0 { notice } else { "" },
+            numbers(&layer.bias)
+        );
+        for y in 0..3 {
+            for x in 0..3 {
+                if layer.is_empty(y, x) {
+                    continue;
+                }
+                let offset = format!("vec2f({}.0, {}.0)", x as i32 - 1, y as i32 - 1);
+                out += &match &previous {
+                    None => format!(
+                        "    r += vec4f({}) * dot(HOOKED_texOff(coordinate, {offset}).rgb, vec3f(0.299, 0.587, 0.114));\n",
+                        numbers(&layer.column(y, x, 0))
+                    ),
+                    Some(previous) => {
+                        let columns: Vec<f32> =
+                            (0..4).flat_map(|c| layer.column(y, x, c)).collect();
+                        format!(
+                            "    r += mat4x4f({}) * {previous}_texOff(coordinate, {offset});\n",
+                            numbers(&columns)
+                        )
+                    }
+                };
+            }
+        }
+        out += "    return clamp(r, vec4f(0.0), vec4f(1.0));\n}\n\n";
+        previous = Some(target);
+    }
+    let last = previous.unwrap_or_default();
+    let span = network.span;
+    out += &format!(
+        "//! name: upscale\n{head}//! input: HOOKED\n//! input: {last}\n\
+         //! output: HOOKED.width * 2, HOOKED.height * 2, rgba16float\n\n\
+         fn kernel(coordinate: vec2f) -> vec4f {{\n    let f = fract(coordinate * {last}_size());\n\
+         \x20   let i = vec2i(f * 2.0);\n\
+         \x20   var e = {last}_tex((vec2f(0.5) - f) * {last}_pt() + coordinate);\n\
+         \x20   return HOOKED_tex(coordinate) + vec4f(vec3f((e[i.y * 2 + i.x] - 0.5) * {span:?}), 0.0);\n}}\n"
+    );
+    out
+}
+
 fn main() {
     let network: Network = serde_json::from_str(NETWORK).expect("network.json");
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/shaders/aiostreams-upscale.glsl"
-    );
-    std::fs::write(path, shader(&network)).expect("write the shader");
+    let shaders = concat!(env!("CARGO_MANIFEST_DIR"), "/shaders");
+    std::fs::write(
+        format!("{shaders}/aiostreams-upscale.glsl"),
+        shader(&network),
+    )
+    .expect("write the mpv shader");
+    std::fs::write(
+        format!("{shaders}/aiostreams-upscale.wgsl"),
+        webgpu_pass(&network),
+    )
+    .expect("write the WebGPU-Player pass");
 }
