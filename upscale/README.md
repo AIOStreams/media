@@ -1,6 +1,6 @@
 # aiostreams-upscale
 
-A small network that doubles the size of anime as it plays. It sharpens line art and cleans up compression, most of all in older and lower-resolution shows, and it is light enough for phones. It is what [AIOStreams](https://github.com/Viren070/AIOStreams)' apps run for **Anime upscaling**.
+A small network that doubles the size of anime as it plays. It draws line art crisp and cleans up compression, most of all in older and lower-resolution shows, and it is light enough for phones. It is what [AIOStreams](https://github.com/Viren070/AIOStreams)' apps run for **Anime upscaling**.
 
 There are no modes to pick. It was trained on many kinds of damage at once, and it leaves a picture alone where there is nothing to fix.
 
@@ -18,37 +18,20 @@ It runs with `vo=gpu-next` or `vo=gpu`, on any graphics API mpv uses. It only ru
 
 [`shaders/aiostreams-upscale.wgsl`](shaders/aiostreams-upscale.wgsl) is the same network as a pass file for [WebGPU-Player](https://github.com/alchemyyy/WebGPU-Player). Drop it on the sandbox's shader panel, or give its text to the presenter's `setPresentationPreset`. It runs when the mpv shader would, and leaves HDR video alone by itself.
 
-## How it compares
+## How it looks
 
-PSNR to the clean frames, in dB, on 16 shows the network never saw. Each was copied with damage a real release has, then doubled back to full size. Higher is closer to the clean picture.
-
-| Damage | Plain | Anime4K A | A HQ | B | C | This network |
-| --- | --- | --- | --- | --- | --- | --- |
-| Clean downscale to 540p | 37.30 | 35.16 | 36.07 | 36.77 | **39.15** | 38.75 |
-| Web, 480p | 35.41 | 32.85 | 33.60 | 34.20 | 35.96 | **36.52** |
-| Soft, 480p | 32.94 | 34.18 | 34.37 | 34.23 | 33.68 | **34.43** |
-| DVD, MPEG-2 480p | 32.58 | 34.96 | **35.04** | 34.38 | 33.32 | 34.44 |
-| Low bitrate, 432p | 31.26 | 31.48 | 31.76 | 31.81 | 31.75 | **32.10** |
-| Ringing, 540p | **35.90** | 31.25 | 32.25 | 33.21 | 33.93 | 34.42 |
-| Broadcast, 540p | 34.98 | 34.39 | 34.94 | 35.42 | **36.42** | 36.36 |
-| Broadcast, 720p | 35.15 | 35.23 | 35.77 | 36.13 | **36.65** | 36.49 |
-| **All** | 33.98 | 33.51 | 33.98 | 34.18 | 34.65 | **35.09** |
-
-Plain is bilinear. Anime4K's presets are at their usual names: Mode A is Restore and Upscale CNN M, A HQ the same at VL, B uses Restore Soft M and C Upscale Denoise M. Each preset is best on the damage it was made for and worst away from it, which is why its users switch modes by hand.
-
-What the numbers don't show: Anime4K's HQ preset draws crisper lines than this network does. This network keeps closer to the source, with fewer halos and none of the painted look Anime4K gives textures.
+After the network doubles the picture, a last step moves each pixel along an S-curve toward the darker or lighter end of its source pixel's 3x3 luma range, only where that range is as wide as a line's. Edges get steeper without moving and without halos, and flat areas and texture stay as they are. The network was trained through that step, toward clean frames given the same steeper edges, so it draws lines crisper than the source holds rather than the closest match to a clean copy.
 
 ## Cost
 
-About 260 multiply-adds per source pixel, against about 4,200 for Mode A and 2,100 for Mode C, in 5 passes of four values a pixel. Measured per frame:
+About 260 multiply-adds per source pixel in four layers, plus one 3x3 luma range per source pixel, in 6 passes. Measured per frame:
 
 | Device | Source | Time |
 | --- | --- | --- |
-| NVIDIA RTX 5070 | 720x480 | 0.04 ms |
-| AMD Ryzen 7 7800X3D's integrated graphics | 720x480 | 0.75 ms |
-| Samsung Galaxy S24 (Xclipse 940), at its lowest clock | 640x480 | 1.2 ms |
+| NVIDIA RTX 5070 | 640x480, shown at 1440x1080 | 0.04 ms |
+| Samsung Galaxy S24 (Xclipse 940) | 640x480, shown at 1440x1080 | 1.9 ms |
 
-The time grows with the source's pixels, not the screen's.
+The S24's is the median of 300 frames, its graphics clock left to vary.
 
 ## In an app
 
@@ -70,11 +53,11 @@ let network: serde_json::Value = serde_json::from_str(aiostreams_upscale::NETWOR
 let min_scale = aiostreams_upscale::MIN_SCALE;
 ```
 
-`NETWORK` is `{span, layers: [{weight: [out][in][y][x], bias}]}`. Each layer has a 3x3 kernel; the first reads luma, each later one reads the four features before it, and every layer's output is clamped to 0..1, which is its activation and lets the features live in 8-bit textures. The last layer's four values are the pixels at twice the size, as `(value - 0.5) * span` added to the bilinear picture.
+`NETWORK` is `{span, layers: [{weight: [out][in][y][x], bias, step?}], steepen}`. Each layer has a 3x3 kernel whose taps are `step` pixels apart (1 when absent); the first reads luma, each later one reads the four features before it, and every layer's output is clamped to 0..1, which is its activation and lets the features live in 8-bit textures. The last layer's four values are the pixels at twice the size, as `(value - 0.5) * span` added to the bilinear picture. `steepen` holds the last step's numbers; the documentation on `NETWORK` gives its formula.
 
 ## How it was made
 
-It was trained on clean 1080p frames from 21 shows, with damaged copies of each as input, plus a smaller share of real old SD footage, for which Anime4K's Mode A was the target since no clean copy exists. The frames aren't included. Anime4K, by bloc97 under the MIT licence, was the teacher for that share and the comparison throughout.
+It was trained on clean 1080p frames from 13 shows, with damaged copies of each as input, from clean downscales to heavily compressed SD encodes, plus a share of real old SD footage, for which Anime4K's Mode A was the target since no clean copy exists. The frames aren't included. Anime4K, by bloc97 under the MIT licence, was the teacher for that share and the comparison throughout.
 
 After changing `network.json`, regenerate the shaders with `cargo run -p aiostreams-upscale --example generate`.
 
